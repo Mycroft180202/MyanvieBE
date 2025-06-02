@@ -1,0 +1,6 @@
+@MyanvieBE_HostAddress = http://localhost:5285
+
+GET {{MyanvieBE_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
