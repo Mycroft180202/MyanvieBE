@@ -1,6 +1,5 @@
 ﻿// MyanvieBE/DTOs/News/NewsArticleDto.cs
-using System;
-using MyanvieBE.Models; // Để dùng ArticleStatus
+using MyanvieBE.Models;
 
 namespace MyanvieBE.DTOs.News
 {
@@ -10,8 +9,8 @@ namespace MyanvieBE.DTOs.News
         public string Title { get; set; }
         public string Content { get; set; }
         public string? ThumbnailUrl { get; set; }
-        public string AuthorFullName { get; set; } // Tên người viết
         public Guid AuthorId { get; set; }
+        public string AuthorFullName { get; set; }
         public ArticleStatus Status { get; set; }
         public string Slug { get; set; }
         public DateTime CreatedAt { get; set; }

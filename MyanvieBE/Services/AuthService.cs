@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using MyanvieBE.Data;
+using MyanvieBE.DTOs;
 using MyanvieBE.DTOs.Auth;
 using MyanvieBE.Models;
 using System;

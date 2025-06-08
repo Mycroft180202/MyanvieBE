@@ -20,8 +20,17 @@ namespace MyanvieBE.Services
 
         public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync()
         {
-            var categories = await _context.Categories.ToListAsync();
+            var categories = await _context.Categories.AsNoTracking().ToListAsync();
             return _mapper.Map<IEnumerable<CategoryDto>>(categories);
+        }
+
+        public async Task<IEnumerable<CategoryWithSubCategoriesDto>> GetAllCategoriesWithSubCategoriesAsync()
+        {
+            var categories = await _context.Categories
+                .Include(c => c.SubCategories)
+                .AsNoTracking()
+                .ToListAsync();
+            return _mapper.Map<IEnumerable<CategoryWithSubCategoriesDto>>(categories);
         }
 
         public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryDto createCategoryDto)
@@ -35,11 +44,7 @@ namespace MyanvieBE.Services
         public async Task<CategoryDto?> GetCategoryByIdAsync(Guid id)
         {
             var category = await _context.Categories.FindAsync(id);
-            if (category == null)
-            {
-                return null;
-            }
-            return _mapper.Map<CategoryDto>(category);
+            return _mapper.Map<CategoryDto?>(category);
         }
 
         public async Task<CategoryDto?> UpdateCategoryAsync(Guid id, CreateCategoryDto updateCategoryDto)
@@ -47,11 +52,11 @@ namespace MyanvieBE.Services
             var category = await _context.Categories.FindAsync(id);
             if (category == null)
             {
-                return null; 
+                return null;
             }
 
             _mapper.Map(updateCategoryDto, category);
-
+            category.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return _mapper.Map<CategoryDto>(category);
         }
@@ -61,13 +66,14 @@ namespace MyanvieBE.Services
             var category = await _context.Categories.FindAsync(id);
             if (category == null)
             {
-                return false; // Không tìm thấy
+                return false;
             }
 
-            var hasProducts = await _context.Products.AnyAsync(p => p.CategoryId == id);
-            if (hasProducts)
+            // Cập nhật: Kiểm tra xem có SubCategory nào không
+            var hasSubCategories = await _context.SubCategories.AnyAsync(sc => sc.CategoryId == id);
+            if (hasSubCategories)
             {
-                return false; 
+                throw new InvalidOperationException("Không thể xóa danh mục cha khi vẫn còn danh mục con.");
             }
 
             _context.Categories.Remove(category);

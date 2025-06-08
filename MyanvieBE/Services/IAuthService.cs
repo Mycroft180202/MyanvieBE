@@ -1,4 +1,5 @@
 ﻿// MyanvieBE/Services/IAuthService.cs
+using MyanvieBE.DTOs;
 using MyanvieBE.DTOs.Auth;
 
 namespace MyanvieBE.Services

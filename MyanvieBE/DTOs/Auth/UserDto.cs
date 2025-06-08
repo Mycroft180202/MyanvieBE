@@ -1,7 +1,7 @@
-﻿// MyanvieBE/DTOs/Auth/UserDto.cs
-using MyanvieBE.Models; // Để dùng UserRole
+﻿// MyanvieBE/DTOs/UserDto.cs
+using MyanvieBE.Models;
 
-namespace MyanvieBE.DTOs.Auth
+namespace MyanvieBE.DTOs
 {
     public class UserDto
     {

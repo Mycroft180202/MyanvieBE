@@ -8,18 +8,16 @@ namespace MyanvieBE.Models
     {
         [Required]
         [MaxLength(255)]
-        public string Name { get; set; } // Ví dụ: "Khăn Lụa Hà Đông - Màu Đỏ - Size 90x90cm"
+        public string Name { get; set; } // Ví dụ: "Áo Lụa Tơ Tằm Vàng - Size M"
 
         public string? Description { get; set; }
         public string? ThumbnailUrl { get; set; }
 
-        // Foreign Key: sản phẩm thuộc về một danh mục
         [Required]
-        public Guid CategoryId { get; set; }
-        [ForeignKey("CategoryId")]
-        public virtual Category Category { get; set; }
+        public Guid SubCategoryId { get; set; } // Đổi từ CategoryId
+        [ForeignKey("SubCategoryId")]
+        public virtual SubCategory SubCategory { get; set; } // Đổi từ Category
 
-        // Các trường từ ProductVariant cũ được đưa vào đây
         [MaxLength(50)]
         public string? Color { get; set; }
 
@@ -34,9 +32,8 @@ namespace MyanvieBE.Models
         public int Stock { get; set; }
 
         [MaxLength(100)]
-        public string? Sku { get; set; } // Mã SKU cho sản phẩm/biến thể cụ thể này
+        public string? Sku { get; set; }
 
-        // Collection ProductReview vẫn giữ nguyên (nếu bạn muốn mỗi product cụ thể có review riêng)
         public virtual ICollection<ProductReview> Reviews { get; set; } = new List<ProductReview>();
     }
 }

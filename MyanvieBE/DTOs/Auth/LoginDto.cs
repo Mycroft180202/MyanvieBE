@@ -5,11 +5,10 @@ namespace MyanvieBE.DTOs.Auth
 {
     public class LoginDto
     {
-        [Required(ErrorMessage = "Email là bắt buộc")]
-        [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+        [Required, EmailAddress]
         public string Email { get; set; }
 
-        [Required(ErrorMessage = "Mật khẩu là bắt buộc")]
+        [Required]
         public string Password { get; set; }
     }
 }

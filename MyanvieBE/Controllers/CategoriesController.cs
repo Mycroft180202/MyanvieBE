@@ -7,14 +7,16 @@ using MyanvieBE.Services;
 namespace MyanvieBE.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")] // Đường dẫn sẽ là "api/categories"
+    [Route("api/[controller]")]
     public class CategoriesController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
+        private readonly ISubCategoryService _subCategoryService; // Thêm service
 
-        public CategoriesController(ICategoryService categoryService)
+        public CategoriesController(ICategoryService categoryService, ISubCategoryService subCategoryService)
         {
             _categoryService = categoryService;
+            _subCategoryService = subCategoryService;
         }
 
         // GET: api/categories
@@ -25,62 +27,71 @@ namespace MyanvieBE.Controllers
             return Ok(categories);
         }
 
-        // POST: api/categories
+        // GET: api/categories/with-subcategories
+        [HttpGet("with-subcategories")]
+        public async Task<IActionResult> GetAllCategoriesWithSubCategories()
+        {
+            var categories = await _categoryService.GetAllCategoriesWithSubCategoriesAsync();
+            return Ok(categories);
+        }
+
+        // GET: api/categories/{id}/subcategories
+        [HttpGet("{id}/subcategories")]
+        public async Task<IActionResult> GetSubCategoriesByCategoryId(Guid id)
+        {
+            var subCategories = await _subCategoryService.GetSubCategoriesByCategoryIdAsync(id);
+            return Ok(subCategories);
+        }
+
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDto createCategoryDto)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             var createdCategory = await _categoryService.CreateCategoryAsync(createCategoryDto);
-            // Tạm thời trả về Ok, sau này có thể làm GetById và trả về CreatedAtAction
-            return Ok(createdCategory);
+            return CreatedAtAction(nameof(GetCategoryById), new { id = createdCategory.Id }, createdCategory);
         }
 
-        // GET: api/categories/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCategoryById(Guid id)
         {
             var category = await _categoryService.GetCategoryByIdAsync(id);
             if (category == null)
-            {
-                return NotFound(); // Trả về 404 Not Found nếu không tìm thấy
-            }
+                return NotFound();
             return Ok(category);
         }
 
-        // PUT: api/categories/{id}
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] CreateCategoryDto updateCategoryDto)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             var updatedCategory = await _categoryService.UpdateCategoryAsync(id, updateCategoryDto);
             if (updatedCategory == null)
-            {
                 return NotFound();
-            }
+
             return Ok(updatedCategory);
         }
 
-        // DELETE: api/categories/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteCategory(Guid id)
         {
-            var success = await _categoryService.DeleteCategoryAsync(id);
-            if (!success)
+            try
             {
-                // Có thể trả về NotFound() nếu không tìm thấy
-                // hoặc BadRequest() nếu không cho xóa do ràng buộc (ví dụ còn sản phẩm)
-                return BadRequest("Không thể xóa danh mục này, có thể do còn sản phẩm hoặc danh mục không tồn tại.");
+                var success = await _categoryService.DeleteCategoryAsync(id);
+                if (!success)
+                    return NotFound();
+                return NoContent();
             }
-            return NoContent(); // Trả về 204 No Content khi xóa thành công
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }
