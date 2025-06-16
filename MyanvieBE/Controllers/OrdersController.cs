@@ -40,17 +40,26 @@ namespace MyanvieBE.Controllers
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto createOrderDto)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
             if (!TryGetUserIdAndRole(out var userId, out _))
+            {
                 return Unauthorized();
+            }
 
             try
             {
-                var createdOrder = await _orderService.CreateOrderAsync(createOrderDto, userId);
-                return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder.Id }, createdOrder);
+                var response = await _orderService.CreateOrderAsync(createOrderDto, userId);
+
+                if (response == null || response.Order == null)
+                {
+                    return BadRequest(new { message = "Không thể tạo đơn hàng. Vui lòng kiểm tra lại giỏ hàng hoặc sản phẩm." });
+                }
+                return Ok(response);
             }
-            catch (Exception ex) when (ex is KeyNotFoundException || ex is InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }

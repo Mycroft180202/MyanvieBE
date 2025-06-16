@@ -1,11 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Minio;
 using MyanvieBE.Data;
 using MyanvieBE.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using NuGet.Protocol.Plugins;
-using Minio;
+using System.Text;
+using VNPAY.NET;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +66,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IProductReviewService, ProductReviewService>();
 builder.Services.AddScoped<INewsArticleService, NewsArticleService>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddSingleton<IVnpay, Vnpay>();
 
 builder.Services.AddHttpContextAccessor();
 

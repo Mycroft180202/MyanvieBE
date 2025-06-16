@@ -22,6 +22,10 @@ namespace MyanvieBE.Models
 
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
+        [Required]
+        public PaymentMethod PaymentMethod { get; set; }
+        public long? PaymentTransactionId { get; set; }
+
         public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 
