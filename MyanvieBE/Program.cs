@@ -7,6 +7,7 @@ using MyanvieBE.Services;
 using NuGet.Protocol.Plugins;
 using System.Text;
 using VNPAY.NET;
+using Net.payOS;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +68,14 @@ builder.Services.AddScoped<IProductReviewService, ProductReviewService>();
 builder.Services.AddScoped<INewsArticleService, NewsArticleService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddSingleton<IVnpay, Vnpay>();
+builder.Services.AddSingleton(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var clientId = configuration["PayOS:ClientId"] ?? throw new ArgumentNullException("PayOS:ClientId");
+    var apiKey = configuration["PayOS:ApiKey"] ?? throw new ArgumentNullException("PayOS:ApiKey");
+    var checksumKey = configuration["PayOS:ChecksumKey"] ?? throw new ArgumentNullException("PayOS:ChecksumKey");
+    return new PayOS(clientId, apiKey, checksumKey);
+});
 
 builder.Services.AddHttpContextAccessor();
 

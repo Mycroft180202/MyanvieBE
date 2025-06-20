@@ -12,6 +12,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using VNPAY.NET;
 using VNPAY.NET.Models;
+using Net.payOS;
+using Net.payOS.Types;
+using System.Text.Json;
 
 namespace MyanvieBE.Services
 {
@@ -22,20 +25,44 @@ namespace MyanvieBE.Services
         private readonly ILogger<OrderService> _logger;
         private readonly IVnpay _vnpay; 
         private readonly IConfiguration _configuration;
+        private readonly PayOS _payOS;
 
         public OrderService(
             ApplicationDbContext context, 
             IMapper mapper,
             ILogger<OrderService> logger,
             IVnpay vnpay, 
-            IConfiguration configuration
+            IConfiguration configuration,
+            PayOS payOS
             )
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _vnpay = vnpay; 
-            _configuration = configuration; 
+            _configuration = configuration;
+            _payOS = payOS;
+
+            if (string.IsNullOrEmpty(configuration["PayOS:ClientId"]))
+            {
+                throw new ArgumentNullException(nameof(configuration), "PayOS:ClientId is missing in configuration.");
+            }
+
+            if (string.IsNullOrEmpty(configuration["PayOS:ApiKey"]))
+            {
+                throw new ArgumentNullException(nameof(configuration), "PayOS:ApiKey is missing in configuration.");
+            }
+
+            if (string.IsNullOrEmpty(configuration["PayOS:ChecksumKey"]))
+            {
+                throw new ArgumentNullException(nameof(configuration), "PayOS:ChecksumKey is missing in configuration.");
+            }
+
+            _payOS = new PayOS(
+                configuration["PayOS:ClientId"],
+                configuration["PayOS:ApiKey"],
+                configuration["PayOS:ChecksumKey"]
+            );
         }
 
         public async Task<CreateOrderResponseDto?> CreateOrderAsync(CreateOrderDto createOrderDto, Guid userId)
@@ -62,12 +89,15 @@ namespace MyanvieBE.Services
                     OrderItems = new List<OrderItem>()
                 };
 
-                if (order.PaymentMethod == PaymentMethod.Vnpay)
+                // SỬA LẠI LOGIC GÁN MÃ GIAO DỊCH
+                if (order.PaymentMethod == PaymentMethod.Vnpay || order.PaymentMethod == PaymentMethod.PayOS)
                 {
-                    order.PaymentTransactionId = DateTime.UtcNow.Ticks;
+                    long unixTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+                    order.PaymentTransactionId = unixTimestamp;
                 }
 
                 decimal totalAmount = 0;
+                var payOSItems = new List<ItemData>();
                 foreach (var itemDto in createOrderDto.Items)
                 {
                     var product = await _context.Products.FindAsync(itemDto.ProductId);
@@ -86,6 +116,9 @@ namespace MyanvieBE.Services
                     };
                     order.OrderItems.Add(orderItem);
                     totalAmount += orderItem.Price * orderItem.Quantity;
+
+                    // Thêm item cho PayOS
+                    payOSItems.Add(new ItemData(product.Name, itemDto.Quantity, (int)product.Price));
                 }
                 order.TotalAmount = totalAmount;
 
@@ -93,7 +126,9 @@ namespace MyanvieBE.Services
                 await _context.SaveChangesAsync();
 
                 var response = new CreateOrderResponseDto();
+                string? paymentUrl = null;
 
+                // --- BỔ SUNG LẠI HOÀN TOÀN KHỐI LOGIC TẠO URL THANH TOÁN ---
                 if (order.PaymentMethod == PaymentMethod.Vnpay && order.PaymentTransactionId.HasValue)
                 {
                     _vnpay.Initialize(_configuration["Vnpay:TmnCode"], _configuration["Vnpay:HashSecret"], _configuration["Vnpay:BaseUrl"], _configuration["Vnpay:CallbackUrl"]);
@@ -103,10 +138,39 @@ namespace MyanvieBE.Services
                         Money = (double)order.TotalAmount,
                         Description = $"Thanh toan don hang {order.Id}",
                         CreatedDate = order.CreatedAt,
-                        IpAddress = "127.0.0.1" // Note: Nên lấy IP thực tế từ HttpContext
+                        IpAddress = "127.0.0.1"
                     };
-                    response.PaymentUrl = _vnpay.GetPaymentUrl(paymentRequest);
+                    paymentUrl = _vnpay.GetPaymentUrl(paymentRequest);
                     _logger.LogInformation("VNPay URL created for Order {OrderId}", order.Id);
+                }
+                else if (order.PaymentMethod == PaymentMethod.PayOS && order.PaymentTransactionId.HasValue)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Attempting to create PayOS payment link for Order {OrderId}", order.Id);
+                        var paymentData = new PaymentData(
+                            orderCode: (long)order.PaymentTransactionId,
+                            amount: (int)order.TotalAmount,
+                            description: $"DH {order.PaymentTransactionId}",
+                            items: payOSItems,
+                            cancelUrl: _configuration["PayOS:CancelUrl"],
+                            returnUrl: _configuration["PayOS:ReturnUrl"]
+                        );
+
+                        _logger.LogInformation("PayOS PaymentData being sent: {PaymentData}", JsonSerializer.Serialize(paymentData));
+                        CreatePaymentResult createPaymentResult = await _payOS.createPaymentLink(paymentData);
+                        _logger.LogInformation("PayOS createPaymentLink result: {Result}", JsonSerializer.Serialize(createPaymentResult));
+
+                        paymentUrl = createPaymentResult.checkoutUrl;
+                        if (string.IsNullOrEmpty(paymentUrl))
+                        {
+                            _logger.LogWarning("PayOS returned a result with a null or empty checkoutUrl for Order {OrderId}", order.Id);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "An exception occurred while creating PayOS payment link for Order {OrderId}", order.Id);
+                    }
                 }
 
                 await transaction.CommitAsync();
@@ -118,6 +182,7 @@ namespace MyanvieBE.Services
                     .FirstOrDefaultAsync(o => o.Id == order.Id);
 
                 response.Order = _mapper.Map<OrderDto>(createdOrderWithDetails);
+                response.PaymentUrl = paymentUrl;
 
                 return response;
             }
@@ -197,10 +262,69 @@ namespace MyanvieBE.Services
             }
         }
 
+        public async Task<string?> CreatePayOSPaymentLinkAsync(Order order)
+        {
+            var items = order.OrderItems.Select(oi => new ItemData(
+                oi.Product.Name,
+                oi.Quantity,
+                (int)oi.Price
+            )).ToList();
+
+            var paymentData = new Net.payOS.Types.PaymentData(
+                orderCode: long.Parse(order.Id.ToString("N")),
+                amount: (int)order.TotalAmount,
+                description: $"Payment for Order {order.Id}",
+                items: items,
+                cancelUrl: _configuration["PayOS:CancelUrl"],
+                returnUrl: _configuration["PayOS:ReturnUrl"]
+                
+            );
+
+            var createPaymentResult = await _payOS.createPaymentLink(paymentData);
+            return createPaymentResult.checkoutUrl;
+        }
+
+        public async Task<bool> ProcessPayOSWebhookAsync(WebhookType webhookBody)
+        {
+            try
+            {
+                _logger.LogInformation("--- BEGIN PayOS Webhook Processing ---");
+                WebhookData verifiedData = _payOS.verifyPaymentWebhookData(webhookBody);
+                _logger.LogInformation("PayOS Webhook verified for orderCode: {OrderCode}, Code: {Code}", verifiedData.orderCode, verifiedData.code);
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.PaymentTransactionId == verifiedData.orderCode);
+                if (order == null)
+                {
+                    _logger.LogWarning("Order with PaymentTransactionId (orderCode) {OrderCode} NOT FOUND in database.", verifiedData.orderCode);
+                    return true;
+                }
+                if (order.Status != OrderStatus.Pending)
+                {
+                    _logger.LogWarning("Order {OrderId} has already been processed (Status: {Status}). Skipping update.", order.Id, order.Status);
+                    return true;
+                }
+                if (verifiedData.code == "00")
+                {
+                    order.Status = OrderStatus.Processing;
+                    _logger.LogInformation("Successfully updated Order {OrderId} status to Processing.", order.Id);
+                }
+                else
+                {
+                    order.Status = OrderStatus.Cancelled;
+                    _logger.LogWarning("PayOS payment was not successful (Code: {Code}). Updated Order {OrderId} status to Cancelled.", verifiedData.code, order.Id);
+                }
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("--- END PayOS Webhook Processing (Success) ---");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception caught in ProcessPayOSWebhookAsync for orderCode {OrderCode}.", webhookBody.data?.orderCode);
+                return false;
+            }
+        }
 
         public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
         {
-            _logger.LogInformation("Admin: Getting all orders.");
             var orders = await _context.Orders
                 .Include(o => o.User)
                 .Include(o => o.OrderItems)
@@ -208,53 +332,28 @@ namespace MyanvieBE.Services
                 .OrderByDescending(o => o.OrderDate)
                 .AsNoTracking()
                 .ToListAsync();
-
             return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
         public async Task<OrderDto?> UpdateOrderStatusAsync(Guid orderId, OrderStatus newStatus)
         {
-            _logger.LogInformation("Admin: Attempting to update status for Order ID: {OrderId} to {NewStatus}", orderId, newStatus);
-
             var order = await _context.Orders
-                .Include(o => o.User) // Include để khi map trả về DTO có đủ thông tin
+                .Include(o => o.User)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
 
-            if (order == null)
-            {
-                _logger.LogWarning("Admin: Order with ID {OrderId} not found for status update.", orderId);
-                return null;
-            }
-
-            // Có thể thêm logic kiểm tra việc chuyển đổi trạng thái có hợp lệ không ở đây
-            // Ví dụ: không cho chuyển từ Delivered về Pending.
-            // if (order.Status == OrderStatus.Delivered && newStatus == OrderStatus.Pending) { /* throw error */ }
+            if (order == null) return null;
 
             order.Status = newStatus;
             order.UpdatedAt = DateTime.UtcNow;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Admin: Status for Order ID {OrderId} updated successfully to {NewStatus}", orderId, newStatus);
-                return _mapper.Map<OrderDto>(order);
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                _logger.LogError(ex, "Admin: Concurrency Exception on UpdateOrderStatus for Order ID: {OrderId}", orderId);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Admin: Generic Exception on SaveChanges for UpdateOrderStatus, Order ID: {OrderId}", orderId);
-                return null;
-            }
+            await _context.SaveChangesAsync();
+            return _mapper.Map<OrderDto>(order);
         }
+
         public async Task<IEnumerable<OrderDto>> GetMyOrdersAsync(Guid userId)
         {
-            _logger.LogInformation("Fetching orders for User ID: {UserId}", userId);
             var orders = await _context.Orders
                 .Where(o => o.UserId == userId)
                 .Include(o => o.User)
@@ -263,34 +362,25 @@ namespace MyanvieBE.Services
                 .OrderByDescending(o => o.OrderDate)
                 .AsNoTracking()
                 .ToListAsync();
-
             return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
         public async Task<OrderDto?> GetOrderByIdAsync(Guid orderId, Guid userId, bool isAdmin)
         {
-            _logger.LogInformation("Fetching order by ID: {OrderId} for User ID: {UserId}. IsAdmin: {IsAdmin}", orderId, userId, isAdmin);
-
             var order = await _context.Orders
                 .Include(o => o.User)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == orderId);
-
-            if (order == null)
-            {
-                _logger.LogWarning("Order with ID {OrderId} not found.", orderId);
-                return null;
-            }
-
-            if (!isAdmin && order.UserId != userId)
-            {
-                _logger.LogWarning("User {UserId} is not authorized to view Order {OrderId}.", userId, orderId);
-                return null;
-            }
-
+            if (order == null) return null;
+            if (!isAdmin && order.UserId != userId) return null;
             return _mapper.Map<OrderDto>(order);
+        }
+
+        public async Task<Order?> GetOrderEntityByIdAsync(Guid orderId)
+        {
+            return await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId);
         }
     }
 }

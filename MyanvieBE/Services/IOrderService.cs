@@ -1,9 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
-using MyanvieBE.DTOs.Order; // Quan trọng: using DTO mới
+﻿using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Http;
+using MyanvieBE.DTOs.Order;
 using MyanvieBE.Models;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Net.payOS.Types; // THÊM DÒNG NÀY
 
 namespace MyanvieBE.Services
 {
@@ -15,5 +14,7 @@ namespace MyanvieBE.Services
         Task<OrderDto?> GetOrderByIdAsync(Guid orderId, Guid userId, bool isAdmin);
         Task<IEnumerable<OrderDto>> GetAllOrdersAsync();
         Task<OrderDto?> UpdateOrderStatusAsync(Guid orderId, OrderStatus newStatus);
+
+        Task<bool> ProcessPayOSWebhookAsync(WebhookType webhookBody);
     }
 }
