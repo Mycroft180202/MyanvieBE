@@ -100,6 +100,12 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
+}
+
 // Tự động tạo bucket mặc định khi ứng dụng khởi động
 using (var scope = app.Services.CreateScope())
 {
