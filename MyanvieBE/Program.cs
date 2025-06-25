@@ -8,10 +8,9 @@ using NuGet.Protocol.Plugins;
 using System.Text;
 using VNPAY.NET;
 using Net.payOS;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// --- Bắt đầu phần thêm cấu hình ---
 
 var minioSettings = builder.Configuration.GetSection("MinioSettings");
 var minioEndpoint = minioSettings["Endpoint"];
@@ -19,7 +18,33 @@ var minioAccessKey = minioSettings["AccessKey"];
 var minioSecretKey = minioSettings["SecretKey"];
 var minioUseSsl = bool.Parse(minioSettings["UseSsl"] ?? "false");
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionUrl = builder.Configuration.GetConnectionString("DefaultConnection");
+
+string connectionString;
+if (string.IsNullOrWhiteSpace(connectionUrl))
+{
+    // Nếu không tìm thấy connection string, throw lỗi để dễ dàng debug
+    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
+}
+else
+{
+    var uri = new Uri(connectionUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    var builderNpgsql = new Npgsql.NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port,
+        Username = userInfo[0],
+        Password = userInfo[1],
+        Database = uri.AbsolutePath.Trim('/'),
+        // Thêm 2 dòng sau để kết nối an toàn trên môi trường cloud
+        SslMode = Npgsql.SslMode.Prefer,
+        TrustServerCertificate = true
+    };
+
+    connectionString = builderNpgsql.ConnectionString;
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
