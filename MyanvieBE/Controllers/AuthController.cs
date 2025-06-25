@@ -96,5 +96,25 @@ namespace MyanvieBE.Controllers
 
             return Ok(new { message = "Mật khẩu đã được khôi phục thành công." });
         }
+
+
+        [HttpPost("verify-reset-code")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeDto verifyDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var result = await _authService.VerifyPasswordResetCodeAsync(verifyDto);
+
+            if (!result)
+            {
+                return BadRequest(new { message = "Mã xác thực không hợp lệ hoặc đã hết hạn." });
+            }
+
+            return Ok(new { message = "Mã xác thực hợp lệ." });
+        }
     }
 }
