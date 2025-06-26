@@ -96,7 +96,7 @@ namespace MyanvieBE.Services
                     order.PaymentTransactionId = unixTimestamp;
                 }
 
-                decimal totalAmount = 0;
+                decimal totalAmount = 30000;
                 var payOSItems = new List<ItemData>();
                 foreach (var itemDto in createOrderDto.Items)
                 {
