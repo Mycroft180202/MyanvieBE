@@ -23,7 +23,6 @@ var connectionUrl = builder.Configuration.GetConnectionString("DefaultConnection
 string connectionString;
 if (string.IsNullOrWhiteSpace(connectionUrl))
 {
-    // Nếu không tìm thấy connection string, throw lỗi để dễ dàng debug
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
 }
 else
