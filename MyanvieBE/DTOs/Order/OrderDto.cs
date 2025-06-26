@@ -9,6 +9,7 @@ namespace MyanvieBE.DTOs.Order
         public Guid UserId { get; set; }
         public string CustomerFullName { get; set; }
         public string CustomerEmail { get; set; }
+        public string CustomerPhone { get; set; }
         public DateTime OrderDate { get; set; }
         public decimal TotalAmount { get; set; }
         public string ShippingAddress { get; set; }

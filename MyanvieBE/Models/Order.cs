@@ -23,6 +23,8 @@ namespace MyanvieBE.Models
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
         [Required]
+        public string Phone { get; set; }
+        [Required]
         public PaymentMethod PaymentMethod { get; set; }
         public long? PaymentTransactionId { get; set; }
 
