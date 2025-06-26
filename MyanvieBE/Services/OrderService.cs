@@ -85,7 +85,6 @@ namespace MyanvieBE.Services
                     OrderDate = DateTime.UtcNow,
                     ShippingAddress = createOrderDto.ShippingAddress,
                     Status = OrderStatus.Pending,
-                    Phone = createOrderDto.CustomerPhone,
                     PaymentMethod = createOrderDto.PaymentMethod,
                     OrderItems = new List<OrderItem>()
                 };
