@@ -7,6 +7,7 @@ using MyanvieBE.DTOs.Order;
 using MyanvieBE.Models;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Threading.Tasks;
 using VNPAY.NET;
@@ -25,7 +26,6 @@ namespace MyanvieBE.Services
         private readonly IVnpay _vnpay;
         private readonly IConfiguration _configuration;
         private readonly PayOS _payOS;
-        private const decimal SHIPPING_FEE = 30000; // Fixed shipping fee of 30,000
 
         public OrderService(
             ApplicationDbContext context,
@@ -89,6 +89,7 @@ namespace MyanvieBE.Services
                     OrderItems = new List<OrderItem>()
                 };
 
+                // SỬA LẠI LOGIC GÁN MÃ GIAO DỊCH
                 if (order.PaymentMethod == PaymentMethod.Vnpay || order.PaymentMethod == PaymentMethod.PayOS)
                 {
                     long unixTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -116,10 +117,9 @@ namespace MyanvieBE.Services
                     order.OrderItems.Add(orderItem);
                     totalAmount += orderItem.Price * orderItem.Quantity;
 
+                    // Thêm item cho PayOS
                     payOSItems.Add(new ItemData(product.Name, itemDto.Quantity, (int)product.Price));
                 }
-                // Add fixed shipping fee to total amount
-                totalAmount += SHIPPING_FEE;
                 order.TotalAmount = totalAmount;
 
                 await _context.Orders.AddAsync(order);
@@ -128,14 +128,15 @@ namespace MyanvieBE.Services
                 var response = new CreateOrderResponseDto();
                 string? paymentUrl = null;
 
+                // --- BỔ SUNG LẠI HOÀN TOÀN KHỐI LOGIC TẠO URL THANH TOÁN ---
                 if (order.PaymentMethod == PaymentMethod.Vnpay && order.PaymentTransactionId.HasValue)
                 {
                     _vnpay.Initialize(_configuration["Vnpay:TmnCode"], _configuration["Vnpay:HashSecret"], _configuration["Vnpay:BaseUrl"], _configuration["Vnpay:CallbackUrl"]);
                     var paymentRequest = new VNPAY.NET.Models.PaymentRequest
                     {
                         PaymentId = order.PaymentTransactionId.Value,
-                        Money = (double)order.TotalAmount, // Includes shipping fee
-                        Description = $"Thanh toan don hang {order.Id} (bao gom phi van chuyen {SHIPPING_FEE})",
+                        Money = (double)order.TotalAmount,
+                        Description = $"Thanh toan don hang {order.Id}",
                         CreatedDate = order.CreatedAt,
                         IpAddress = "127.0.0.1"
                     };
@@ -149,8 +150,8 @@ namespace MyanvieBE.Services
                         _logger.LogInformation("Attempting to create PayOS payment link for Order {OrderId}", order.Id);
                         var paymentData = new PaymentData(
                             orderCode: (long)order.PaymentTransactionId,
-                            amount: (int)order.TotalAmount, // Includes shipping fee
-                            description: $"DH {order.PaymentTransactionId} (bao gom phi van chuyen {SHIPPING_FEE})",
+                            amount: (int)order.TotalAmount,
+                            description: $"DH {order.PaymentTransactionId}",
                             items: payOSItems,
                             cancelUrl: _configuration["PayOS:CancelUrl"],
                             returnUrl: _configuration["PayOS:ReturnUrl"]
@@ -195,6 +196,7 @@ namespace MyanvieBE.Services
 
         public async Task<bool> ProcessVnpayPaymentAsync(IQueryCollection vnpayResponse)
         {
+            // === BẮT ĐẦU PHIÊN BẢN DEBUG ===
             _logger.LogInformation("--- BEGIN VNPay Callback Processing ---");
             _logger.LogInformation("Raw Vnpay Response Query: {query}", vnpayResponse.ToString());
 
@@ -270,8 +272,8 @@ namespace MyanvieBE.Services
 
             var paymentData = new Net.payOS.Types.PaymentData(
                 orderCode: long.Parse(order.Id.ToString("N")),
-                amount: (int)order.TotalAmount, // Includes shipping fee
-                description: $"Payment for Order {order.Id} (bao gom phi van chuyen {SHIPPING_FEE})",
+                amount: (int)order.TotalAmount,
+                description: $"Payment for Order {order.Id}",
                 items: items,
                 cancelUrl: _configuration["PayOS:CancelUrl"],
                 returnUrl: _configuration["PayOS:ReturnUrl"]
