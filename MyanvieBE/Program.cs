@@ -18,34 +18,7 @@ var minioAccessKey = minioSettings["AccessKey"];
 var minioSecretKey = minioSettings["SecretKey"];
 var minioUseSsl = bool.Parse(minioSettings["UseSsl"] ?? "false");
 
-var connectionUrl = builder.Configuration.GetConnectionString("DefaultConnection");
-
-string connectionString;
-if (string.IsNullOrWhiteSpace(connectionUrl))
-{
-    // Nếu không tìm thấy connection string, throw lỗi để dễ dàng debug
-    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
-}
-else
-{
-    var uri = new Uri(connectionUrl);
-    var userInfo = uri.UserInfo.Split(':');
-
-    var builderNpgsql = new Npgsql.NpgsqlConnectionStringBuilder
-    {
-        Host = uri.Host,
-        Port = uri.Port,
-        Username = userInfo[0],
-        Password = userInfo[1],
-        Database = uri.AbsolutePath.Trim('/'),
-        // Thêm 2 dòng sau để kết nối an toàn trên môi trường cloud
-        SslMode = Npgsql.SslMode.Prefer,
-        TrustServerCertificate = true
-    };
-
-    connectionString = builderNpgsql.ConnectionString;
-}
-
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
