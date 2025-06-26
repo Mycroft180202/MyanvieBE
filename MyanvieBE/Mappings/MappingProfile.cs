@@ -52,8 +52,7 @@ namespace MyanvieBE.Mappings
             CreateMap<CreateOrderDto, Order>();
             CreateMap<Order, OrderDto>()
                 .ForMember(dest => dest.CustomerFullName, opt => opt.MapFrom(src => src.User.FullName))
-                .ForMember(dest => dest.CustomerEmail, opt => opt.MapFrom(src => src.User.Email))
-                .ForMember(dest => dest.CustomerPhone, opt => opt.MapFrom(src => src.User.PhoneNumber));
+                .ForMember(dest => dest.CustomerEmail, opt => opt.MapFrom(src => src.User.Email));
             CreateMap<OrderItem, OrderItemDto>()
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product.Name))
                 .ForMember(dest => dest.ProductThumbnailUrl, opt => opt.MapFrom(src => src.Product.ThumbnailUrl));
