@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyanvieBE.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250626064049_AddPhoneToOrder")]
-    partial class AddPhoneToOrder
+    [Migration("20250626064628_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
