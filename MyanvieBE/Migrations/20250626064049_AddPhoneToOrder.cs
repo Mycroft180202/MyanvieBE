@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MyanvieBE.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialSchema : Migration
+    public partial class AddPhoneToOrder : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -126,6 +126,9 @@ namespace MyanvieBE.Migrations
                     TotalAmount = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     ShippingAddress = table.Column<string>(type: "text", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
+                    Phone = table.Column<string>(type: "text", nullable: false),
+                    PaymentMethod = table.Column<int>(type: "integer", nullable: false),
+                    PaymentTransactionId = table.Column<long>(type: "bigint", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },

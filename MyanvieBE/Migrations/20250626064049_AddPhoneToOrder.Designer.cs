@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyanvieBE.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250619114411_AddPayOSToPaymentMethod")]
-    partial class AddPayOSToPaymentMethod
+    [Migration("20250626064049_AddPhoneToOrder")]
+    partial class AddPhoneToOrder
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -164,6 +164,10 @@ namespace MyanvieBE.Migrations
 
                     b.Property<long?>("PaymentTransactionId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("ShippingAddress")
                         .IsRequired()
