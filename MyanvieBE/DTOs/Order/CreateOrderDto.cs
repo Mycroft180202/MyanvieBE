@@ -9,6 +9,11 @@ namespace MyanvieBE.DTOs.Order
         [Required]
         public string ShippingAddress { get; set; }
 
+        [Required(ErrorMessage = "Số điện thoại là bắt buộc.")]
+        [Phone(ErrorMessage = "Số điện thoại không hợp lệ.")]
+        [RegularExpression(@"^([0-9]{10})$", ErrorMessage = "Số điện thoại phải có 10 chữ số.")]
+        public string CustomerPhone { get; set; }
+
         [Required]
         [EnumDataType(typeof(PaymentMethod))] 
         public PaymentMethod PaymentMethod { get; set; } 

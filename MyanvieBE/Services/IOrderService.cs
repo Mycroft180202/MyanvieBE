@@ -14,7 +14,6 @@ namespace MyanvieBE.Services
         Task<OrderDto?> GetOrderByIdAsync(Guid orderId, Guid userId, bool isAdmin);
         Task<IEnumerable<OrderDto>> GetAllOrdersAsync();
         Task<OrderDto?> UpdateOrderStatusAsync(Guid orderId, OrderStatus newStatus);
-
         Task<bool> ProcessPayOSWebhookAsync(WebhookType webhookBody);
     }
 }
