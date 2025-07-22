@@ -26,7 +26,7 @@ namespace MyanvieBE.Services
         private readonly ILogger<AuthService> _logger;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IEmailService _emailService; // Quan trọng: Inject IEmailService
+        private readonly IEmailService _emailService; 
 
         public AuthService(
             ApplicationDbContext context,
@@ -34,14 +34,14 @@ namespace MyanvieBE.Services
             ILogger<AuthService> logger,
             IConfiguration configuration,
             IHttpContextAccessor httpContextAccessor,
-            IEmailService emailService) // Thêm IEmailService vào constructor
+            IEmailService emailService) 
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
-            _emailService = emailService; // Gán giá trị
+            _emailService = emailService; 
         }
 
         public async Task<UserDto?> RegisterAsync(RegisterDto registerDto)
@@ -66,7 +66,7 @@ namespace MyanvieBE.Services
                 FullName = registerDto.FullName,
                 Email = registerDto.Email,
                 PasswordHash = System.Text.Encoding.UTF8.GetBytes(passwordHash),
-                PasswordSalt = new byte[0], // BCrypt đã bao gồm salt trong hash
+                PasswordSalt = new byte[0], 
                 PhoneNumber = registerDto.PhoneNumber,
                 Address = registerDto.Address,
                 DateOfBirth = dateOfBirthUtc,
