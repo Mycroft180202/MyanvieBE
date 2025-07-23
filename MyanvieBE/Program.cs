@@ -4,49 +4,30 @@ using Microsoft.IdentityModel.Tokens;
 using Minio;
 using MyanvieBE.Data;
 using MyanvieBE.Services;
-using NuGet.Protocol.Plugins;
+using Net.payOS;
 using System.Text;
 using VNPAY.NET;
-using Net.payOS;
-using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Lấy chuỗi kết nối SQL Server từ appsettings.json
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
+}
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+
+// --- Cấu hình các dịch vụ khác (giữ nguyên) ---
 
 var minioSettings = builder.Configuration.GetSection("MinioSettings");
 var minioEndpoint = minioSettings["Endpoint"];
 var minioAccessKey = minioSettings["AccessKey"];
 var minioSecretKey = minioSettings["SecretKey"];
 var minioUseSsl = bool.Parse(minioSettings["UseSsl"] ?? "false");
-
-var connectionUrl = builder.Configuration.GetConnectionString("DefaultConnection");
-
-string connectionString;
-if (string.IsNullOrWhiteSpace(connectionUrl))
-{
-    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
-}
-else
-{
-    var uri = new Uri(connectionUrl);
-    var userInfo = uri.UserInfo.Split(':');
-
-    var builderNpgsql = new Npgsql.NpgsqlConnectionStringBuilder
-    {
-        Host = uri.Host,
-        Port = uri.Port,
-        Username = userInfo[0],
-        Password = userInfo[1],
-        Database = uri.AbsolutePath.Trim('/'),
-        // Thêm 2 dòng sau để kết nối an toàn trên môi trường cloud
-        SslMode = Npgsql.SslMode.Prefer,
-        TrustServerCertificate = true
-    };
-
-    connectionString = builderNpgsql.ConnectionString;
-}
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
 
 builder.Services.AddSingleton<IMinioClient>(sp => new MinioClient()
     .WithEndpoint(minioEndpoint)
@@ -62,15 +43,14 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.SaveToken = true; // Lưu token trong HttpContext sau khi xác thực thành công
-    options.RequireHttpsMetadata = false; // Trong development có thể đặt false, production nên là true
+    options.SaveToken = true;
+    options.RequireHttpsMetadata = false;
     options.TokenValidationParameters = new TokenValidationParameters()
     {
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidateLifetime = true, // Kiểm tra token có hết hạn không
-        ValidateIssuerSigningKey = true, // Quan trọng: Phải xác thực chữ ký
-
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Key"]))
@@ -78,7 +58,6 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
-
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -103,20 +82,17 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddHttpContextAccessor();
 
-// Thêm cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
                       policy =>
                       {
-                          policy.WithOrigins("https://myanvie.netlify.app")
+                          policy.WithOrigins("https://myanvie.netlify.app", "http://localhost:3000") // Thêm localhost để test
                                 .AllowAnyHeader()
                                 .AllowAnyMethod();
                       });
 });
-
-
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -124,20 +100,24 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Tự động migrate database khi khởi động
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.Migrate();
 }
 
-// Tự động tạo bucket mặc định khi ứng dụng khởi động
+// Tự động tạo bucket Minio khi khởi động
 using (var scope = app.Services.CreateScope())
 {
     var minioService = scope.ServiceProvider.GetRequiredService<IMinioService>();
     var defaultBucketName = builder.Configuration["MinioSettings:BucketName"];
-    await minioService.EnsureBucketExistsAsync(defaultBucketName);
+    if (!string.IsNullOrEmpty(defaultBucketName))
+    {
+        await minioService.EnsureBucketExistsAsync(defaultBucketName);
+    }
 }
-    // Configure the HTTP request pipeline.
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

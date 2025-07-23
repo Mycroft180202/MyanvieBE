@@ -1,25 +1,21 @@
-﻿// MyanvieBE/Data/ApplicationDbContextFactory.cs (hoặc MyanvieBE/ApplicationDbContextFactory.cs)
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using MyanvieBE.Data;
 using System.IO;
-using MyanvieBE.Data; // Đảm bảo using đúng namespace tới ApplicationDbContext
 
 public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
+        // Sửa lỗi: Đường dẫn chính xác là thư mục hiện tại nơi lệnh dotnet ef được chạy.
         string basePath = Directory.GetCurrentDirectory();
-        if (basePath.EndsWith("Data")) // Hoặc kiểm tra cụ thể hơn
-        {
-            basePath = Path.GetFullPath(Path.Combine(basePath, ".."));
-        }
-
 
         IConfigurationRoot configuration = new ConfigurationBuilder()
-            .SetBasePath(basePath) // Đặt thư mục gốc để tìm file cấu hình
-            .AddJsonFile("appsettings.Development.json", optional: true) // Ưu tiên Development
-            .AddJsonFile("appsettings.json", optional: true) // Sau đó là appsettings.json chung
+            .SetBasePath(basePath)
+            // Đặt cả 2 file là optional để tránh lỗi nếu 1 trong 2 file không tồn tại
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
@@ -27,10 +23,10 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
 
         if (string.IsNullOrEmpty(connectionString))
         {
-            throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            throw new InvalidOperationException("Could not find a connection string named 'DefaultConnection'. Ensure it is present in appsettings.json or appsettings.Development.json.");
         }
 
-        optionsBuilder.UseNpgsql(connectionString);
+        optionsBuilder.UseSqlServer(connectionString);
 
         return new ApplicationDbContext(optionsBuilder.Options);
     }

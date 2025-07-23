@@ -196,16 +196,9 @@ namespace MyanvieBE.Services
 
         public async Task<bool> ProcessVnpayPaymentAsync(IQueryCollection vnpayResponse)
         {
-            // === BẮT ĐẦU PHIÊN BẢN DEBUG ===
-            _logger.LogInformation("--- BEGIN VNPay Callback Processing ---");
-            _logger.LogInformation("Raw Vnpay Response Query: {query}", vnpayResponse.ToString());
 
             _vnpay.Initialize(_configuration["Vnpay:TmnCode"], _configuration["Vnpay:HashSecret"], _configuration["Vnpay:BaseUrl"], _configuration["Vnpay:CallbackUrl"]);
             var paymentResult = _vnpay.GetPaymentResult(vnpayResponse);
-
-            _logger.LogInformation("DEBUG: PaymentResult.IsSuccess = {IsSuccess}", paymentResult.IsSuccess);
-            _logger.LogInformation("DEBUG: PaymentResult.PaymentId (vnp_TxnRef) = {PaymentId}", paymentResult.PaymentId);
-            _logger.LogInformation("DEBUG: PaymentResult.ResponseCode = {ResponseCode}", paymentResult.PaymentResponse?.Code.ToString());
 
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.PaymentTransactionId == paymentResult.PaymentId);
 

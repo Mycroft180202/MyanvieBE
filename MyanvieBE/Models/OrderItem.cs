@@ -14,7 +14,6 @@ namespace MyanvieBE.Models
         [Required]
         public Guid ProductId { get; set; } // Khóa ngoại trỏ tới bảng Products
 
-        // ---> THÊM HOẶC SỬA LẠI THUỘC TÍNH NAVIGATION NÀY <---
         [ForeignKey("ProductId")]
         public virtual Product Product { get; set; } // Thuộc tính navigation tới Product
 
