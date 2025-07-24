@@ -1,5 +1,4 @@
-﻿// MyanvieBE/Controllers/NewsArticlesController.cs
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyanvieBE.DTOs.News;

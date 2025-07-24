@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace MyanvieBE.Controllers
 {
     [ApiController]
-    [Route("api/products/{productId}/reviews")] // Lồng vào đường dẫn của product
+    [Route("api/products/{productId}/reviews")] 
     public class ProductReviewsController : ControllerBase
     {
         private readonly IProductReviewService _reviewService;
